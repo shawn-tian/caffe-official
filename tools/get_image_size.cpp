@@ -69,6 +69,7 @@ int main(int argc, char** argv) {
     }
     std::string name;
     int id;
+
     while (nameidfile >> name >> id) {
       CHECK(map_name_id.find(name) == map_name_id.end());
       map_name_id[name] = id;
@@ -87,10 +88,20 @@ int main(int argc, char** argv) {
   for (int line_id = 0; line_id < lines.size(); ++line_id) {
     boost::filesystem::path img_file = root_folder / lines[line_id].first;
     GetImageSize(img_file.string(), &height, &width);
-    std::string img_name = img_file.stem().string();
+    // LOG(INFO) << "root folder:" << root_folder << "\nimage file:" << img_file.string();
+    // LOG(INFO) << "line:" << lines[line_id].first;
+    // LOG(INFO) << "parent: " << img_file.parent_path().stem();
+    std::string img_name = ( img_file.parent_path().stem() / img_file.stem() ).string();
+
+    // std::map<string,int>::const_iterator it;
+    // for (it = map_name_id.begin(); it != map_name_id.end(); it++) {
+    // LOG(INFO) << it->first<<" =>"<< it->second<<std::endl;
+    // }
+
     if (map_name_id.size() == 0) {
       outfile << img_name << " " << height << " " << width << std::endl;
     } else {
+      // LOG(INFO) << img_name;
       CHECK(map_name_id.find(img_name) != map_name_id.end());
       int img_id = map_name_id.find(img_name)->second;
       outfile << img_id << " " << height << " " << width << std::endl;
