@@ -121,6 +121,7 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
   top_shape.push_back(7);
   if (num_kept == 0) {
     LOG(INFO) << "Couldn't find any detections";
+    name_count_ += num;
     top_shape[2] = 1;
     top[0]->Reshape(top_shape);
     caffe_set<Dtype>(top[0]->count(), -1, top[0]->mutable_cpu_data());
@@ -206,6 +207,15 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
     }
     if (need_save_) {
       ++name_count_;
+
+      boost::filesystem::path in_file(test_iter_num_file_);
+      std::ifstream infile;
+      infile.open(in_file.string().c_str(), std::ifstream::in);
+      string iter_num;
+      getline(infile, iter_num);
+
+      // LOG(INFO) << "name_count is:  " << name_count_ << std::endl;
+
       if (name_count_ % num_test_image_ == 0) {
         if (output_format_ == "VOC") {
           map<string, std::ofstream*> outfiles;
@@ -266,10 +276,11 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
               << std::endl << "]" << std::endl;
         } else if (output_format_ == "ILSVRC") {
           boost::filesystem::path output_directory(output_directory_);
-          boost::filesystem::path file(output_name_prefix_ + ".txt");
+          boost::filesystem::path file(output_name_prefix_ + iter_num + ".txt");
           boost::filesystem::path out_file = output_directory / file;
           std::ofstream outfile;
           outfile.open(out_file.string().c_str(), std::ofstream::out);
+          LOG(INFO) << "Iteration file written: " << out_file.string() << std::endl;
 
           BOOST_FOREACH(ptree::value_type &det, detections_.get_child("")) {
             ptree pt = det.second;

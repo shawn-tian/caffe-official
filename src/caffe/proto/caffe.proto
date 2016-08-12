@@ -257,6 +257,7 @@ message SolverParameter {
   //    MaxIntegral: maximally interpolated AP. Used in VOC2012/ILSVRC.
   //    Integral: the natural integral of the precision-recall curve.
   optional string ap_version = 42 [default = "Integral"];
+  optional string test_iter_num_file = 43;
 
   // The number of iterations for each test net.
   repeated int32 test_iter = 3;
@@ -935,6 +936,8 @@ message SaveOutputParameter {
   // name_size_file. For example, when we only want to evaluate on part
   // of the test images.
   optional uint32 num_test_image = 6;
+  // test iteration number
+  optional string test_iter_num_file = 7;
 }
 
 // Message that store parameters used by DetectionOutputLayer

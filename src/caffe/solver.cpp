@@ -207,6 +207,14 @@ void Solver<Dtype>::Step(int iters) {
     if (param_.test_interval() && iter_ % param_.test_interval() == 0
         && (iter_ > 0 || param_.test_initialization())
         && Caffe::root_solver()) {
+      
+      // write test iteration number file as cache 
+      boost::filesystem::path out_file(param_.test_iter_num_file());
+      std::ofstream outfile;
+      outfile.open(out_file.string().c_str(), std::ofstream::out);
+      outfile << "iter_" << iter_ << std::endl;
+      // LOG(INFO) << "Iteration file written: " << out_file.string() << std::endl;
+
       TestAll();
       if (requested_early_exit_) {
         // Break out of the while loop because stop was requested while testing.
@@ -284,7 +292,6 @@ void Solver<Dtype>::Solve(const char* resume_file) {
 
   // Initialize to false every time we start solving.
   requested_early_exit_ = false;
-
   if (resume_file) {
     LOG(INFO) << "Restoring previous solver status from " << resume_file;
     Restore(resume_file);
@@ -292,6 +299,8 @@ void Solver<Dtype>::Solve(const char* resume_file) {
 
   // For a network that is trained by the solver, no bottom or top vecs
   // should be given, and we will just provide dummy vecs.
+  // LOG(INFO) << "Resume from iteration: " << iter_ << std::endl;
+
   int start_iter = iter_;
   Step(param_.max_iter() - iter_);
   // If we haven't already, save a snapshot after optimization, unless
@@ -320,6 +329,12 @@ void Solver<Dtype>::Solve(const char* resume_file) {
     LOG(INFO) << "Iteration " << iter_ << ", loss = " << smoothed_loss_;
   }
   if (param_.test_interval() && iter_ % param_.test_interval() == 0) {
+    // write test iteration number file as cache 
+    boost::filesystem::path out_file(param_.test_iter_num_file());
+    std::ofstream outfile;
+    outfile.open(out_file.string().c_str(), std::ofstream::out);
+    outfile << "iter_" << start_iter << std::endl;
+    //LOG(INFO) << "Iteration file written: " << out_file.string() << std::endl;
     TestAll();
   }
   LOG(INFO) << "Optimization Done.";
@@ -428,6 +443,9 @@ void Solver<Dtype>::TestDetection(const int test_net_id) {
   const shared_ptr<Net<Dtype> >& test_net = test_nets_[test_net_id];
   Dtype loss = 0;
   for (int i = 0; i < param_.test_iter(test_net_id); ++i) {
+    if ( i % 100 == 0) {
+      LOG(INFO) << "Testing net iteration: " << i << " / " << param_.test_iter(test_net_id);
+    }
     SolverAction::Enum request = GetRequestedAction();
     // Check to see if stoppage of testing/training has been requested.
     while (request != SolverAction::NONE) {

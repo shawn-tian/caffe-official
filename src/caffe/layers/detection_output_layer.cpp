@@ -44,6 +44,9 @@ void DetectionOutputLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
         LOG(FATAL) << "Failed to create directory: " << output_directory_;
     }
   }
+  if (save_output_param.has_test_iter_num_file()) {
+    test_iter_num_file_ = save_output_param.test_iter_num_file();
+  }
   output_name_prefix_ = save_output_param.output_name_prefix();
   need_save_ = output_directory_ == "" ? false : true;
   output_format_ = save_output_param.output_format();
@@ -250,6 +253,7 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
   top_shape.push_back(7);
   if (num_kept == 0) {
     LOG(INFO) << "Couldn't find any detections";
+    name_count_ += num;
     top_shape[2] = 1;
     top[0]->Reshape(top_shape);
     caffe_set<Dtype>(top[0]->count(), -1, top[0]->mutable_cpu_data());
@@ -334,6 +338,14 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
       }
     }
     if (need_save_) {
+      // get the test iteration number
+      boost::filesystem::path in_file(test_iter_num_file_);
+      std::ifstream infile;
+      infile.open(in_file.string().c_str(), std::ifstream::in);
+      string iter_num;
+      getline(infile, iter_num);
+      // LOG(INFO) << "Iteration number:  " << iter_num << std::endl;
+
       ++name_count_;
       if (name_count_ % num_test_image_ == 0) {
         if (output_format_ == "VOC") {
@@ -395,7 +407,7 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
               << std::endl << "]" << std::endl;
         } else if (output_format_ == "ILSVRC") {
           boost::filesystem::path output_directory(output_directory_);
-          boost::filesystem::path file(output_name_prefix_ + ".txt");
+          boost::filesystem::path file(output_name_prefix_ + iter_num + ".txt");
           boost::filesystem::path out_file = output_directory / file;
           std::ofstream outfile;
           outfile.open(out_file.string().c_str(), std::ofstream::out);

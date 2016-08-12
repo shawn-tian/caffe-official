@@ -73,6 +73,8 @@ class DetectionOutputLayer : public Layer<Dtype> {
     NOT_IMPLEMENTED;
   }
 
+  string test_iter_num_file_;
+  
   int num_classes_;
   bool share_location_;
   int num_loc_classes_;
