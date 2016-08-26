@@ -172,6 +172,7 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
 
   // Retrieve all prior bboxes. It is same within a batch since we assume all
   // images in a batch are of same dimension.
+ 
   vector<NormalizedBBox> prior_bboxes;
   vector<vector<float> > prior_variances;
   GetPriorBBoxes(prior_data, num_priors_, &prior_bboxes, &prior_variances);
@@ -189,6 +190,98 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
     const map<int, vector<float> >& conf_scores = all_conf_scores[i];
     map<int, vector<int> > indices;
     int num_det = 0;
+
+    // *********************************************************
+    // for all labels, detected boxes are the same (shared)
+    int label_tmp;
+    for (int c = 0; c < num_classes_; ++c) {
+      if (c == background_label_id_) {
+        // Ignore background class.
+        continue;
+      }
+      if (conf_scores.find(c) == conf_scores.end()) {
+        // Something bad happened if there are no predictions for current label.
+        LOG(FATAL) << "Could not find confidence predictions for label " << c;
+      }
+      int label = share_location_ ? -1 : c;
+      if (decode_bboxes.find(label) == decode_bboxes.end()) {
+        // Something bad happened if there are no predictions for current label.
+        LOG(FATAL) << "Could not find location predictions for label " << label;
+        continue;
+      }
+      label_tmp = label;
+      break;
+      // LOG(INFO) << "Box size: " << bboxes.size();
+      // LOG(INFO) << "Test box for class " << c << ": " << bboxes[0].xmin() << ", " 
+      //           << bboxes[0].xmax() << ", " << bboxes[0].ymin() << ", " << bboxes[0].ymax();
+    }
+    // 7308 boxes across different classes are the same
+    const vector<NormalizedBBox>& bboxes_all = decode_bboxes.find(label_tmp)->second;
+    vector<float> scores_max(bboxes_all.size(), 0.0);  // 7308 max scores across classes
+    map<int, vector<float> > scores_all;  // scores_all.size() = 7308, each vector has num_class scores
+    for (int c = 0; c < num_classes_; ++c) {
+      if (c == background_label_id_) {
+        // Ignore background class.
+        continue;
+      }
+      // take the max scores for each box, across different classes
+      if (conf_scores.find(c) == conf_scores.end()) {
+        // Something bad happened if there are no predictions for current label.
+        LOG(FATAL) << "Could not find confidence predictions for label " << c;
+      }
+      const vector<float>& scores = conf_scores.find(c)->second;
+      for(int i = 0; i < scores_max.size(); i++){
+        scores_all[i].push_back(scores[i]);
+        if(scores[i] > scores_max[i]){
+          scores_max[i] = scores[i];
+        }
+      }
+    }
+    
+    vector<int> index_kept; 
+    ApplyNMSFast(bboxes_all, scores_max, confidence_threshold_, nms_threshold_,
+          keep_top_k_, &index_kept);
+
+    LOG(INFO) << "scores_all size: " << scores_all.size() << ". scores_all[1] size: " << scores_all.find(1)->second.size();
+    LOG(INFO) << "bboxes_all size: " << bboxes_all.size() << ". bboxes_all[1] size: " << bboxes_all[1].xmin();
+
+    for(int i = 0; i < index_kept.size(); i++){
+      int idx = index_kept[i];
+      NormalizedBBox clip_bbox;
+      ClipBBox(bboxes_all[idx], &clip_bbox);
+      NormalizedBBox scale_bbox;
+      ScaleBBox(clip_bbox, sizes_[name_count_].first,
+        sizes_[name_count_].second, &scale_bbox);
+      vector<float> scores = scores_all.find(idx)->second;
+      float xmin = scale_bbox.xmin();
+      float ymin = scale_bbox.ymin();
+      float xmax = scale_bbox.xmax();
+      float ymax = scale_bbox.ymax();
+      
+      ptree pt_xmin, pt_ymin, pt_width, pt_height;
+      pt_xmin.put<float>("", xmin);
+      pt_ymin.put<float>("", ymin);
+      pt_width.put<float>("", xmax - xmin);
+      pt_height.put<float>("", ymax - ymin);
+      ptree cur_bbox;
+      cur_bbox.push_back(std::make_pair("", pt_xmin));
+      cur_bbox.push_back(std::make_pair("", pt_ymin));
+      cur_bbox.push_back(std::make_pair("", pt_width));
+      cur_bbox.push_back(std::make_pair("", pt_height));
+      ptree cur_scores;
+      for(int i = 0; i < scores.size(); i++){
+        ptree s_node;
+        s_node.put<float>("", scores[i]);
+        cur_scores.push_back(std::make_pair("", s_node));
+      }
+      ptree cur_det;
+      cur_det.put("image_id", names_[name_count_]);
+      cur_det.add_child("bbox", cur_bbox);
+      cur_det.add_child("scores_all", cur_scores);
+      detections_all_scores_.push_back(std::make_pair("", cur_det));
+    }
+    // end *********************************************************
+
     for (int c = 0; c < num_classes_; ++c) {
       if (c == background_label_id_) {
         // Ignore background class.
@@ -199,6 +292,7 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
         LOG(FATAL) << "Could not find confidence predictions for label " << c;
       }
       const vector<float>& scores = conf_scores.find(c)->second;
+      // LOG(INFO) << "Scores size is " << scores.size();
       int label = share_location_ ? -1 : c;
       if (decode_bboxes.find(label) == decode_bboxes.end()) {
         // Something bad happened if there are no predictions for current label.
@@ -275,7 +369,8 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
         LOG(FATAL) << "Could not find confidence predictions for " << label;
         continue;
       }
-      const vector<float>& scores = conf_scores.find(label)->second;
+      const vector<float>& scores = conf_scores.find(label)->second; // dim: 7308
+      
       int loc_label = share_location_ ? -1 : label;
       if (decode_bboxes.find(loc_label) == decode_bboxes.end()) {
         // Something bad happened if there are no predictions for current label.
@@ -290,6 +385,7 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
           << "Cannot find label: " << label << " in the label map.";
         CHECK_LT(name_count_, names_.size());
       }
+      // LOG(INFO) << "Indices size is " << indices.size();
       for (int j = 0; j < indices.size(); ++j) {
         int idx = indices[j];
         top_data[count * 7] = i;
@@ -330,6 +426,7 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
             cur_det.put("category_id", label_to_name_[label].c_str());
           }
           cur_det.add_child("bbox", cur_bbox);
+          // cur_det.add_child("scores_max", scores_max);
           cur_det.put<float>("score", score);
 
           detections_.push_back(std::make_pair("", cur_det));
@@ -412,6 +509,37 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
           std::ofstream outfile;
           outfile.open(out_file.string().c_str(), std::ofstream::out);
 
+          // **************************************************************
+          // save the scores for each class for every box
+          boost::filesystem::path file_all_score(output_name_prefix_ + iter_num + "_scores_all.txt");
+          boost::filesystem::path out_file_all_score = output_directory / file_all_score;
+          std::ofstream outfile_all_score;
+          outfile_all_score.open(out_file_all_score.string().c_str(), std::ofstream::out);
+
+          outfile_all_score << names_[name_count_-1];
+          BOOST_FOREACH(ptree::value_type &det, detections_all_scores_.get_child("")) {
+            ptree pt = det.second;
+            string image_name = pt.get<string>("image_id");
+            vector<float> scores_all;
+            BOOST_FOREACH(ptree::value_type &elem, pt.get_child("scores_all")) {
+              scores_all.push_back(elem.second.get_value<float>());
+            }
+            vector<int> bbox;
+            BOOST_FOREACH(ptree::value_type &elem, pt.get_child("bbox")) {
+              bbox.push_back(static_cast<int>(elem.second.get_value<float>()));
+            }
+            // outfile_all_score << image_name << " ";
+            outfile_all_score << " " << bbox[0] << " " << bbox[1];
+            outfile_all_score << " " << bbox[0] + bbox[2];
+            outfile_all_score << " " << bbox[1] + bbox[3];
+            for(int i = 0; i < scores_all.size(); i++){
+              outfile_all_score << " " << (float)scores_all[i];
+            }
+            outfile_all_score << std::endl;
+          }
+          // end ***********************************************************
+
+          // save the box larger than a threshold class wise
           BOOST_FOREACH(ptree::value_type &det, detections_.get_child("")) {
             ptree pt = det.second;
             int label = pt.get<int>("category_id");

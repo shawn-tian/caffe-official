@@ -256,7 +256,7 @@ bool ReadXMLToAnnotatedDatum(const string& labelfile, const int img_height,
     AnnotatedDatum* anno_datum) {
   ptree pt;
   read_xml(labelfile, pt);
-
+  // LOG(INFO) << "Annotation file:  " << labelfile << std::endl;
   // Parse annotation.
   int width = 0, height = 0;
   try {
@@ -281,11 +281,13 @@ bool ReadXMLToAnnotatedDatum(const string& labelfile, const int img_height,
       bool difficult = false;
       ptree object = v1.second;
       BOOST_FOREACH(ptree::value_type &v2, object.get_child("")) {
-        ptree pt2 = v2.second;
+        ptree pt2 = v2.second; 
         if (v2.first == "name") {
           string name = pt2.data();
+          // LOG(INFO) << "Object name: " << name;
           if (name_to_label.find(name) == name_to_label.end()) {
-            LOG(FATAL) << "Unknown name: " << name;
+            LOG(WARNING) << "Unknown name: " << name << " in " << labelfile;
+            break;
           }
           int label = name_to_label.find(name)->second;
           bool found_group = false;

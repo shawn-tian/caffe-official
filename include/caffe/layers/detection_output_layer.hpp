@@ -74,7 +74,9 @@ class DetectionOutputLayer : public Layer<Dtype> {
   }
 
   string test_iter_num_file_;
-  
+  // const vector<float>& scores_topk_all_; // 31*num_boxes_kept
+  // const vector<NormalizedBBox>& bboxes_topk_; // // 4*num_boxes_kept
+
   int num_classes_;
   bool share_location_;
   int num_loc_classes_;
@@ -101,7 +103,8 @@ class DetectionOutputLayer : public Layer<Dtype> {
   int num_test_image_;
   int name_count_;
 
-  ptree detections_;
+  ptree detections_; // stores [score, box] for each class, not all class scores are stored for each box
+  ptree detections_all_scores_; // stores num_classes*num_boxes_kept, 4*num_boxes_kept
 
   bool visualize_;
   float visualize_threshold_;

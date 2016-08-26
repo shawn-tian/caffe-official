@@ -10,6 +10,8 @@ import stat
 import subprocess
 import sys
 
+from datetime import datetime
+
 # Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
 def AddExtraLayers(net, use_batchnorm=True):
     use_relu = True
@@ -58,9 +60,9 @@ resume_training = True
 remove_old_models = False
 
 # The database file for training data. Created by data/VOC0712/create_data.sh
-train_data = "examples/VOC0712/VOC0712_trainval_lmdb"
+train_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_vid_train+det30_trainval_all_lmdb"
 # The database file for testing data. Created by data/VOC0712/create_data.sh
-test_data = "examples/VOC0712/VOC0712_test_lmdb"
+test_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_test_lmdb"
 # Specify the batch sampler.
 resize_width = 300
 resize_height = 300
@@ -153,6 +155,7 @@ batch_sampler = [
         ]
 train_transform_param = {
         'mirror': True,
+        'force_color': True,
         'mean_value': [104, 117, 123],
         'resize_param': {
                 'prob': 1,
@@ -173,6 +176,7 @@ train_transform_param = {
         }
 test_transform_param = {
         'mean_value': [104, 117, 123],
+        'force_color': True,
         'resize_param': {
                 'prob': 1,
                 'resize_mode': P.Resize.WARP,
@@ -185,39 +189,43 @@ test_transform_param = {
 # A learning rate for batch_size = 1, num_gpus = 1.
 base_lr = 0.00004
 
+cur_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 # Modify the job name if you want.
-job_name = "SSD_{}".format(resize)
+job_name = "SSD_{}_DET30All".format(resize)
 # The name of the model. Modify it if you want.
-model_name = "ResNet_VOC0712_{}".format(job_name)
+model_name = "ResNet_{}".format(job_name)
 
 # Directory which stores the model .prototxt file.
-save_dir = "models/ResNet/VOC0712/{}".format(job_name)
+save_dir = "models/ResNet/ILSVRC2016_VID/{}".format(job_name)
 # Directory which stores the snapshot of models.
-snapshot_dir = "models/ResNet/VOC0712/{}".format(job_name)
+snapshot_dir = "models/ResNet/ILSVRC2016_VID/{}".format(job_name)
 # Directory which stores the job script and log file.
-job_dir = "jobs/ResNet/VOC0712/{}".format(job_name)
+job_dir = "jobs/ResNet/ILSVRC2016_VID/{}".format(job_name)
 # Directory which stores the detection results.
-output_result_dir = "{}/data/VOCdevkit/results/VOC2007/{}/Main".format(os.environ['HOME'], job_name)
+output_result_dir = "{}/visenzeWork/ssd_object_detect/results/ILSVRC2016/{}".format(os.environ['HOME'], job_name)
 
 # model definition files.
 train_net_file = "{}/train.prototxt".format(save_dir)
 test_net_file = "{}/test.prototxt".format(save_dir)
 deploy_net_file = "{}/deploy.prototxt".format(save_dir)
 solver_file = "{}/solver.prototxt".format(save_dir)
+# Stores the current test iteration number
+test_iter_num_file = "{}/test_iter_num.txt".format(output_result_dir)
 # snapshot prefix.
 snapshot_prefix = "{}/{}".format(snapshot_dir, model_name)
 # job script path.
-job_file = "{}/{}.sh".format(job_dir, model_name)
+job_file = "{}/{}.sh".format(job_dir, model_name + '_' + cur_time)
 
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
-name_size_file = "data/VOC0712/test_name_size.txt"
-# The pretrained ResNet101 model from https://github.com/KaimingHe/deep-residual-networks.
+name_size_file = "data/ILSVRC2016_VID/vid_val_name_size.txt"
+# The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
+# pretrain_model = "models/VGGNet/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 pretrain_model = "models/ResNet/ResNet-101-model.caffemodel"
 # Stores LabelMapItem.
-label_map_file = "data/VOC0712/labelmap_voc.prototxt"
+label_map_file = "data/ILSVRC2016_VID/labelmap_vid.prototxt"
 
 # MultiBoxLoss parameters.
-num_classes = 21
+num_classes = 31
 share_location = True
 background_label_id=0
 train_on_diff_gt = True
@@ -277,12 +285,12 @@ clip = True
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "0,1,2,3"
+gpus = "6,7"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
 # Divide the mini-batch to different GPUs.
-batch_size = 32
+batch_size = 16
 accum_batch_size = 32
 iter_size = accum_batch_size / batch_size
 solver_mode = P.Solver.CPU
@@ -304,7 +312,7 @@ elif normalization_mode == P.Loss.FULL:
   base_lr *= 2000.
 
 # Evaluate on whole test set.
-num_test_image = 4952
+num_test_image = 75522
 test_batch_size = 1
 test_iter = num_test_image / test_batch_size
 
@@ -313,14 +321,14 @@ solver_param = {
     'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "step",
-    'stepsize': 40000,
+    'stepsize': 60000,
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 60000,
-    'snapshot': 40000,
-    'display': 10,
-    'average_loss': 10,
+    'max_iter': 120000,
+    'snapshot': 10000,
+    'display': 20,
+    'average_loss': 20,
     'type': "SGD",
     'solver_mode': solver_mode,
     'device_id': device_id,
@@ -328,10 +336,12 @@ solver_param = {
     'snapshot_after_train': True,
     # Test parameters
     'test_iter': [test_iter],
-    'test_interval': 10000,
+    'test_compute_loss': True,
+    'test_interval': 20000,
     'eval_type': "detection",
-    'ap_version': "11point",
+    'ap_version': "MaxIntegral",
     'test_initialization': False,
+    'test_iter_num_file': test_iter_num_file, # record the iter number for the output file
     }
 
 # parameters for generating detection output.
@@ -342,11 +352,12 @@ det_out_param = {
     'nms_param': {'nms_threshold': 0.45, 'top_k': 400},
     'save_output_param': {
         'output_directory': output_result_dir,
-        'output_name_prefix': "comp4_det_test_",
-        'output_format': "VOC",
+        'output_name_prefix': "vid2016_",
+        'output_format': "ILSVRC",
         'label_map_file': label_map_file,
         'name_size_file': name_size_file,
         'num_test_image': num_test_image,
+        'test_iter_num_file': test_iter_num_file, # record the iter number for the output file
         },
     'keep_top_k': 200,
     'confidence_threshold': 0.01,
@@ -505,7 +516,7 @@ with open(job_file, 'w') as f:
   f.write('--solver="{}" \\\n'.format(solver_file))
   f.write(train_src_param)
   if solver_param['solver_mode'] == P.Solver.GPU:
-    f.write('--gpu {} 2>&1 | tee {}/{}.log\n'.format(gpus, job_dir, model_name))
+    f.write('--gpu {} 2>&1 | tee {}/{}.log\n'.format(gpus, job_dir, model_name + '_' + cur_time))
   else:
     f.write('2>&1 | tee {}/{}.log\n'.format(job_dir, model_name))
 

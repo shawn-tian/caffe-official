@@ -6,7 +6,7 @@ cd $root_dir
 redo=false
 data_root_dir="/mnt/disk_06/shangxuan/vid_imagenet2016"
 dataset_name="ILSVRC2016_VID"
-mapfile="$root_dir/data/$dataset_name/labelmap_vidll.prototxt"
+mapfile="$root_dir/data/$dataset_name/labelmap_vid.prototxt"
 db="lmdb"
 min_dim=0
 max_dim=0
@@ -29,7 +29,7 @@ fi
 #   2>&1 | tee $root_dir/data/$dataset_name/$dataset.log
 # done
 
-for dataset in test trainval1
+for dataset in vid_train+det30_trainval_all
 do
   python $root_dir/scripts/create_annoset.py --anno-type="detection" \
   --label-map-file=$mapfile --min-dim=$min_dim --max-dim=$max_dim \

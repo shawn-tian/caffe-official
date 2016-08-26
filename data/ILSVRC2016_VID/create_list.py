@@ -22,8 +22,8 @@ anno_dir = "Annotations"
 anno_ext = "xml"
 
 train_list_file = "{}/trainval1.txt".format(CURDIR)
-val_list_file = "{}/val2.txt".format(CURDIR)
-val_name_size_file = "{}/val2_name_size.txt".format(CURDIR)
+val_list_file = "{}/vid_val.txt".format(CURDIR)
+val_name_size_file = "{}/vid_val_name_size.txt".format(CURDIR)
 test_list_file = "{}/test.txt".format(CURDIR)
 test_name_size_file = "{}/test_name_size.txt".format(CURDIR)
 
@@ -93,7 +93,7 @@ else:
 #     process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
 #     output = process.communicate()[0]
 
-if redo or not os.path.exists(test_list_file):
+if redo or not os.path.exists(val_list_file):
     datasets = ["val"]
     img_files = []
     anno_files = []
@@ -114,20 +114,20 @@ if redo or not os.path.exists(test_list_file):
                 if count % 1000 ==0:
                     print "Processed {} files.".format(count)
 
-    with open(test_list_file, "w") as f:
+    with open(val_list_file, "w") as f:
         for i in xrange(len(img_files)):
             f.write("{} {}\n".format(img_files[i], anno_files[i]))
-        print "Images written to {}".format(test_list_file)
+        print "Images written to {}".format(val_list_file)
 else:
-    print "Testing image list file already exists: {}".format(test_list_file)
+    print "Testing image list file already exists: {}".format(val_list_file)
 
-if redo or not os.path.exists(test_name_size_file):
+if redo or not os.path.exists(val_name_size_file):
     dataset = 'val'
     imgset_file = "{}/{}/{}".format(data_dir, dataset, imgset_list)
     cmd = "{}/../../build/tools/get_image_size --name_id_file={} {} {} {}".format(
-            CURDIR, imgset_file, data_dir, test_list_file, test_name_size_file)
+            CURDIR, imgset_file, data_dir, val_list_file, val_name_size_file)
     print cmd
     process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
     output = process.communicate()[0]
 else:
-    print "Testing image size file already exists: {}".format(test_name_size_file)
+    print "Testing image size file already exists: {}".format(val_name_size_file)

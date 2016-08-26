@@ -225,14 +225,14 @@ for file in os.listdir(snapshot_dir):
     if iter > max_iter:
       max_iter = iter
 
-max_iter = 300000 # test a specific snapshot
+max_iter = 120000 # test a specific snapshot
 
 if max_iter == 0:
   print("Cannot find snapshot in {}".format(snapshot_dir))
   sys.exit()
 
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
-name_size_file = "data/ILSVRC2016_VID/test_name_size.txt"
+name_size_file = "data/ILSVRC2016_VID/vid_val_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
 # pretrain_model = "models/VGGNet/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 pretrain_model = "{}_iter_{}.caffemodel".format(snapshot_prefix, max_iter)
@@ -302,10 +302,10 @@ clip = True
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "1"
+gpus = "0"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
-
+num_gpus = 0
 # The number does not matter since we do not do training with this script.
 batch_size = 1
 accum_batch_size = 1
@@ -334,8 +334,8 @@ elif normalization_mode == P.Loss.FULL:
 freeze_layers = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2']
 
 # Evaluate on whole test set.
-num_test_image = 75522
-test_batch_size = 32
+num_test_image = 1
+test_batch_size = 1
 # Ideally test_batch_size should be divisible by num_test_image,
 # otherwise mAP will be slightly off the true value.
 test_iter = int(math.ceil(float(num_test_image) / test_batch_size))
@@ -383,7 +383,7 @@ det_out_param = {
         'test_iter_num_file': test_iter_num_file, # record the iter number for the output file
         },
     'keep_top_k': 200,
-    'confidence_threshold': 0.01,
+    'confidence_threshold': 0.001,
     'code_type': code_type,
     }
 

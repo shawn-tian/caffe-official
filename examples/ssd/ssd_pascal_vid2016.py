@@ -192,9 +192,9 @@ else:
 
 # Modify the job name if you want.
 cur_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-job_name = "SSD_{}_eval_ILSVRC".format(resize)
+job_name = "SSD_{}".format(resize)
 # The name of the model. Modify it if you want.
-model_name = "VGG_ILSVRC2016_VID_{}".format(job_name)
+model_name = "VGG_{}".format(job_name)
 
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/ILSVRC2016_VID/{}".format(job_name)
@@ -293,8 +293,8 @@ gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
 # Divide the mini-batch to different GPUs.
-batch_size = 32
-accum_batch_size = 32
+batch_size = 64
+accum_batch_size = 64
 iter_size = accum_batch_size / batch_size
 solver_mode = P.Solver.CPU
 device_id = 0
@@ -316,6 +316,7 @@ elif normalization_mode == P.Loss.FULL:
   # TODO(weiliu89): Estimate the exact # of priors.
   base_lr *= 2000. / iter_size
 
+# base_lr /= 10
 # Which layers to freeze (no backward) during training.
 freeze_layers = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2']
 
@@ -329,11 +330,11 @@ solver_param = {
     'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "step",
-    'stepsize': 200000,
+    'stepsize': 160000,
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 400000,
+    'max_iter': 300000,
     'snapshot': 20000,
     'display': 100,
     'average_loss': 100,
@@ -495,6 +496,7 @@ for file in os.listdir(snapshot_dir):
     if iter > max_iter:
       max_iter = iter
 
+# print('snapshot prefix: {}'.format(snapshot_prefix))
 train_src_param = '--weights="{}" \\\n'.format(pretrain_model)
 if resume_training:
   if max_iter > 0:
@@ -528,7 +530,6 @@ with open(job_file, 'w') as f:
 # Copy the python script to job_dir.
 py_file = os.path.abspath(__file__)
 shutil.copy(py_file, job_dir)
-
 # Run the job.
 os.chmod(job_file, stat.S_IRWXU)
 if run_soon:

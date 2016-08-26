@@ -443,8 +443,8 @@ void Solver<Dtype>::TestDetection(const int test_net_id) {
   const shared_ptr<Net<Dtype> >& test_net = test_nets_[test_net_id];
   Dtype loss = 0;
   for (int i = 0; i < param_.test_iter(test_net_id); ++i) {
-    if ( i % 100 == 0) {
-      LOG(INFO) << "Testing net iteration: " << i << " / " << param_.test_iter(test_net_id);
+    if ( i % 1000 == 0) {
+      LOG(INFO) << "Testing net iteration " << iter_ << ": " << i << " / " << param_.test_iter(test_net_id);
     }
     SolverAction::Enum request = GetRequestedAction();
     // Check to see if stoppage of testing/training has been requested.

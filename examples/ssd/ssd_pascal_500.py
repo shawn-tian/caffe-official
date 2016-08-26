@@ -193,9 +193,9 @@ else:
 # Modify the job name if you want.
 
 cur_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-job_name = "SSD_{}_eval_ILSVRC".format(resize)
+job_name = "SSD_{}".format(resize)
 # The name of the model. Modify it if you want.
-model_name = "VGG_ILSVRC2016_VID_{}".format(job_name)
+model_name = "VGG_{}".format(job_name)
 
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/ILSVRC2016_VID/{}".format(job_name)
@@ -290,12 +290,12 @@ clip = True
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "4,5"
+gpus = "6,7"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
 # Divide the mini-batch to different GPUs.
-batch_size = 16
+batch_size = 32
 accum_batch_size = 32
 iter_size = accum_batch_size / batch_size
 solver_mode = P.Solver.CPU
@@ -316,13 +316,13 @@ elif normalization_mode == P.Loss.FULL:
   # TODO(weiliu89): Estimate the exact # of priors.
   base_lr *= 2000.
 
-base_lr /= 10
+base_lr /= 100
 # Which layers to freeze (no backward) during training.
 freeze_layers = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2']
 
 # Evaluate on whole test set.
 num_test_image = 75522
-test_batch_size = 8
+test_batch_size = 1
 test_iter = num_test_image / test_batch_size
 
 solver_param = {
@@ -330,12 +330,12 @@ solver_param = {
     'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "step",
-    'stepsize': 160000,
+    'stepsize': 240000,
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 300000,
-    'snapshot': 10000,
+    'max_iter': 200000,
+    'snapshot': 20000,
     'display': 100,
     'average_loss': 100,
     'type': "SGD",
@@ -346,7 +346,7 @@ solver_param = {
     # Test parameters
     'test_iter': [test_iter],
     'test_compute_loss': True,
-    'test_interval': 20000,
+    'test_interval': 200000,
     'eval_type': "detection",
     'ap_version': "MaxIntegral",
     'test_initialization': False,
