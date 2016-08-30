@@ -57,6 +57,98 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
     const map<int, vector<float> >& conf_scores = all_conf_scores[i];
     map<int, vector<int> > indices;
     int num_det = 0;
+
+    // *********************************************************
+    // for all labels, detected boxes are the same (shared)
+    int label_tmp;
+    for (int c = 0; c < num_classes_; ++c) {
+      if (c == background_label_id_) {
+        // Ignore background class.
+        continue;
+      }
+      if (conf_scores.find(c) == conf_scores.end()) {
+        // Something bad happened if there are no predictions for current label.
+        LOG(FATAL) << "Could not find confidence predictions for label " << c;
+      }
+      int label = share_location_ ? -1 : c;
+      if (decode_bboxes.find(label) == decode_bboxes.end()) {
+        // Something bad happened if there are no predictions for current label.
+        LOG(FATAL) << "Could not find location predictions for label " << label;
+        continue;
+      }
+      label_tmp = label;
+      break;
+      // LOG(INFO) << "Box size: " << bboxes.size();
+      // LOG(INFO) << "Test box for class " << c << ": " << bboxes[0].xmin() << ", " 
+      //           << bboxes[0].xmax() << ", " << bboxes[0].ymin() << ", " << bboxes[0].ymax();
+    }
+    // 7308 boxes across different classes are the same
+    const vector<NormalizedBBox>& bboxes_all = decode_bboxes.find(label_tmp)->second;
+    vector<float> scores_max(bboxes_all.size(), 0.0);  // 7308 max scores across classes
+    map<int, vector<float> > scores_all;  // scores_all.size() = 7308, each vector has num_class scores
+    for (int c = 0; c < num_classes_; ++c) {
+      if (c == background_label_id_) {
+        // Ignore background class.
+        continue;
+      }
+      // take the max scores for each box, across different classes
+      if (conf_scores.find(c) == conf_scores.end()) {
+        // Something bad happened if there are no predictions for current label.
+        LOG(FATAL) << "Could not find confidence predictions for label " << c;
+      }
+      const vector<float>& scores = conf_scores.find(c)->second;
+      for(int i = 0; i < scores_max.size(); i++){
+        scores_all[i].push_back(scores[i]);
+        if(scores[i] > scores_max[i]){
+          scores_max[i] = scores[i];
+        }
+      }
+    }
+    
+    vector<int> index_kept; 
+    ApplyNMSFast(bboxes_all, scores_max, confidence_threshold_, nms_threshold_,
+          keep_top_k_, &index_kept);
+
+    //LOG(INFO) << "scores_all size: " << scores_all.size() << ". scores_all[1] size: " << scores_all.find(1)->second.size();
+    //LOG(INFO) << "bboxes_all size: " << bboxes_all.size();
+    num_box_kept_ = index_kept.size();
+    for(int i = 0; i < index_kept.size(); i++){
+      int idx = index_kept[i];
+      NormalizedBBox clip_bbox;
+      ClipBBox(bboxes_all[idx], &clip_bbox);
+      NormalizedBBox scale_bbox;
+      ScaleBBox(clip_bbox, sizes_[name_count_].first,
+        sizes_[name_count_].second, &scale_bbox);
+      vector<float> scores = scores_all.find(idx)->second;
+      float xmin = scale_bbox.xmin();
+      float ymin = scale_bbox.ymin();
+      float xmax = scale_bbox.xmax();
+      float ymax = scale_bbox.ymax();
+      
+      ptree pt_xmin, pt_ymin, pt_width, pt_height;
+      pt_xmin.put<float>("", xmin);
+      pt_ymin.put<float>("", ymin);
+      pt_width.put<float>("", xmax - xmin);
+      pt_height.put<float>("", ymax - ymin);
+      ptree cur_bbox;
+      cur_bbox.push_back(std::make_pair("", pt_xmin));
+      cur_bbox.push_back(std::make_pair("", pt_ymin));
+      cur_bbox.push_back(std::make_pair("", pt_width));
+      cur_bbox.push_back(std::make_pair("", pt_height));
+      ptree cur_scores;
+      for(int i = 0; i < scores.size(); i++){
+        ptree s_node;
+        s_node.put<float>("", scores[i]);
+        cur_scores.push_back(std::make_pair("", s_node));
+      }
+      ptree cur_det;
+      //cur_det.put("image_id", names_[name_count_]);
+      cur_det.add_child("bbox", cur_bbox);
+      cur_det.add_child("scores_all", cur_scores);
+      detections_all_scores_.push_back(std::make_pair("", cur_det));
+    }
+    // end *********************************************************
+
     for (int c = 0; c < num_classes_; ++c) {
       if (c == background_label_id_) {
         // Ignore background class.
@@ -276,11 +368,40 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
               << std::endl << "]" << std::endl;
         } else if (output_format_ == "ILSVRC") {
           boost::filesystem::path output_directory(output_directory_);
-          boost::filesystem::path file(output_name_prefix_ + iter_num + ".txt");
+          boost::filesystem::path file(output_name_prefix_ + iter_num + "_all.txt");
           boost::filesystem::path out_file = output_directory / file;
           std::ofstream outfile;
           outfile.open(out_file.string().c_str(), std::ofstream::out);
-          LOG(INFO) << "Iteration file written: " << out_file.string() << std::endl;
+
+          // **************************************************************
+          // save the scores for each class for every box
+          boost::filesystem::path file_all_score(output_name_prefix_ + iter_num + "_scores_all.dat");
+          boost::filesystem::path out_file_all_score = output_directory / file_all_score;
+          std::fstream outfile_all_score;
+          outfile_all_score.open(out_file_all_score.string().c_str(), std::ios::out | std::ios::binary);
+
+          int image_id = std::atoi(names_[name_count_-1].c_str());
+          outfile_all_score.write(  reinterpret_cast<const char*>( &image_id ), sizeof(int) );
+          outfile_all_score.write(  reinterpret_cast<const char*>( &num_box_kept_ ), sizeof(int) );
+
+          BOOST_FOREACH(ptree::value_type &det, detections_all_scores_.get_child("")) {
+            ptree pt = det.second;
+            //string image_name = pt.get<string>("image_id");
+            vector<float> scores_all;
+            BOOST_FOREACH(ptree::value_type &elem, pt.get_child("scores_all")) {
+              scores_all.push_back(elem.second.get_value<float>());
+            }
+            vector<int> bbox;
+            BOOST_FOREACH(ptree::value_type &elem, pt.get_child("bbox")) {
+              bbox.push_back(static_cast<int>(elem.second.get_value<float>()));
+            }
+            bbox[2] = bbox[0] + bbox[2]; bbox[3] = bbox[1] + bbox[3]; 
+            outfile_all_score.write( reinterpret_cast<const char*>( &bbox[0] ), 4*sizeof(int) );
+            outfile_all_score.write(  reinterpret_cast<const char*>( &scores_all[0] ), 30*sizeof(float) );
+          }
+          outfile_all_score.close();
+          LOG(INFO) << "Output file written: " << out_file_all_score.string() << std::endl;
+          // **************************************************************
 
           BOOST_FOREACH(ptree::value_type &det, detections_.get_child("")) {
             ptree pt = det.second;

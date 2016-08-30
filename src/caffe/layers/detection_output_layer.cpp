@@ -242,9 +242,8 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
     ApplyNMSFast(bboxes_all, scores_max, confidence_threshold_, nms_threshold_,
           keep_top_k_, &index_kept);
 
-    LOG(INFO) << "scores_all size: " << scores_all.size() << ". scores_all[1] size: " << scores_all.find(1)->second.size();
-    LOG(INFO) << "bboxes_all size: " << bboxes_all.size() << ". bboxes_all[1] size: " << bboxes_all[1].xmin();
-
+    //LOG(INFO) << "scores_all size: " << scores_all.size() << ". scores_all[1] size: " << scores_all.find(1)->second.size();
+    //LOG(INFO) << "bboxes_all size: " << bboxes_all.size();
     for(int i = 0; i < index_kept.size(); i++){
       int idx = index_kept[i];
       NormalizedBBox clip_bbox;
@@ -276,6 +275,7 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
       }
       ptree cur_det;
       cur_det.put("image_id", names_[name_count_]);
+      cur_det.put("num_box", index_kept.size());
       cur_det.add_child("bbox", cur_bbox);
       cur_det.add_child("scores_all", cur_scores);
       detections_all_scores_.push_back(std::make_pair("", cur_det));
@@ -511,15 +511,21 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
 
           // **************************************************************
           // save the scores for each class for every box
-          boost::filesystem::path file_all_score(output_name_prefix_ + iter_num + "_scores_all.txt");
+          boost::filesystem::path file_all_score(output_name_prefix_ + iter_num + "_scores_all.dat");
           boost::filesystem::path out_file_all_score = output_directory / file_all_score;
-          std::ofstream outfile_all_score;
-          outfile_all_score.open(out_file_all_score.string().c_str(), std::ofstream::out);
+          std::fstream outfile_all_score;
+          outfile_all_score.open(out_file_all_score.string().c_str(), std::ios::out | std::ios::binary);
 
-          outfile_all_score << names_[name_count_-1];
+          int image_id = std::atoi(names_[name_count_-1].c_str());
+          outfile_all_score.write(  reinterpret_cast<const char*>( &image_id ), sizeof(int) );
+          outfile_all_score.write(  reinterpret_cast<const char*>( &num_box_kept_ ), sizeof(int) );
+
           BOOST_FOREACH(ptree::value_type &det, detections_all_scores_.get_child("")) {
             ptree pt = det.second;
-            string image_name = pt.get<string>("image_id");
+            // string image_name = pt.get<string>("image_id");
+            int image_name = pt.get<string>("image_id");
+            int cur_det.put("num_box", num_box_kept_);
+
             vector<float> scores_all;
             BOOST_FOREACH(ptree::value_type &elem, pt.get_child("scores_all")) {
               scores_all.push_back(elem.second.get_value<float>());
@@ -528,15 +534,31 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
             BOOST_FOREACH(ptree::value_type &elem, pt.get_child("bbox")) {
               bbox.push_back(static_cast<int>(elem.second.get_value<float>()));
             }
-            // outfile_all_score << image_name << " ";
-            outfile_all_score << " " << bbox[0] << " " << bbox[1];
-            outfile_all_score << " " << bbox[0] + bbox[2];
-            outfile_all_score << " " << bbox[1] + bbox[3];
-            for(int i = 0; i < scores_all.size(); i++){
-              outfile_all_score << " " << (float)scores_all[i];
-            }
-            outfile_all_score << std::endl;
+            bbox[2] = bbox[0] + bbox[2]; bbox[3] = bbox[1] + bbox[3]; 
+            outfile_all_score.write( reinterpret_cast<const char*>( &bbox[0] ), 4*sizeof(int) );
+            outfile_all_score.write(  reinterpret_cast<const char*>( &scores_all[0] ), 30*sizeof(float) );
           }
+          outfile_all_score.close();
+          // read and test the output
+          // int image_id_test, num_box_kept_test;
+          // vector<int> bbox(4);
+          // vector<float> scores_all(30);
+
+          // outfile_all_score.open(out_file_all_score.string().c_str(), std::ios::in | std::ios::binary);
+          // outfile_all_score.read( (char*) &image_id_test, sizeof(int) );
+          // outfile_all_score.read( (char*) &num_box_kept_test, sizeof(int) );
+          // LOG(INFO) << "image_id_test is " << image_id_test << ": num_box_kept_test is " << num_box_kept_test;
+          // LOG(INFO) << "box info:";
+          // outfile_all_score.read( (char*) &bbox[0], 4*sizeof(int) );
+          // for( int i = 0; i < 4; i++ ){
+          //   LOG(INFO) << bbox[i] << " ";
+          // }
+          // LOG(INFO) << "score info:";
+          // outfile_all_score.read( (char*) &scores_all[0], 30*sizeof(float) );
+          // for( int i = 0; i < 30; i++ ){
+          //   LOG(INFO) << scores_all[i] << " ";
+          // }
+          // outfile_all_score.close();
           // end ***********************************************************
 
           // save the box larger than a threshold class wise
