@@ -244,6 +244,9 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
 
     //LOG(INFO) << "scores_all size: " << scores_all.size() << ". scores_all[1] size: " << scores_all.find(1)->second.size();
     //LOG(INFO) << "bboxes_all size: " << bboxes_all.size();
+    ptree cur_det, boxes_list;
+    cur_det.put<int>("image_id", std::atoi(names_[name_count_].c_str()) );
+    cur_det.put<int>("num_box", index_kept.size());
     for(int i = 0; i < index_kept.size(); i++){
       int idx = index_kept[i];
       NormalizedBBox clip_bbox;
@@ -273,13 +276,16 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
         s_node.put<float>("", scores[i]);
         cur_scores.push_back(std::make_pair("", s_node));
       }
-      ptree cur_det;
-      cur_det.put("image_id", names_[name_count_]);
-      cur_det.put("num_box", index_kept.size());
-      cur_det.add_child("bbox", cur_bbox);
-      cur_det.add_child("scores_all", cur_scores);
-      detections_all_scores_.push_back(std::make_pair("", cur_det));
+      ptree cur_box;
+      cur_box.add_child("bbox", cur_bbox);
+      cur_box.add_child("scores_all", cur_scores);
+
+      //cur_det.push_back("boxes_list", cur_box);
+      //boxes_list.push_back(std::make_pair("", cur_box));
+      cur_det.add_child("boxes_list", boxes_list);
     }
+    cur_det.add_child("boxes_list", boxes_list);
+    detections_all_scores_.push_back(std::make_pair("", cur_det));
     // end *********************************************************
 
     for (int c = 0; c < num_classes_; ++c) {
@@ -516,27 +522,28 @@ void DetectionOutputLayer<Dtype>::Forward_cpu(
           std::fstream outfile_all_score;
           outfile_all_score.open(out_file_all_score.string().c_str(), std::ios::out | std::ios::binary);
 
-          int image_id = std::atoi(names_[name_count_-1].c_str());
-          outfile_all_score.write(  reinterpret_cast<const char*>( &image_id ), sizeof(int) );
-          outfile_all_score.write(  reinterpret_cast<const char*>( &num_box_kept_ ), sizeof(int) );
-
           BOOST_FOREACH(ptree::value_type &det, detections_all_scores_.get_child("")) {
             ptree pt = det.second;
             // string image_name = pt.get<string>("image_id");
-            int image_name = pt.get<string>("image_id");
-            int cur_det.put("num_box", num_box_kept_);
+            int image_id = pt.get<int>("image_id");
+            int num_box = pt.get<int>("num_box");
+            outfile_all_score.write(  reinterpret_cast<const char*>( &image_id ), sizeof(int) );
+            outfile_all_score.write(  reinterpret_cast<const char*>( &num_box ), sizeof(int) );
 
-            vector<float> scores_all;
-            BOOST_FOREACH(ptree::value_type &elem, pt.get_child("scores_all")) {
-              scores_all.push_back(elem.second.get_value<float>());
+            BOOST_FOREACH(ptree::value_type &cur_box, pt.get_child("")) {
+              ptree pt_box = cur_box.second;
+              vector<float> scores_all;
+              BOOST_FOREACH(ptree::value_type &elem, pt_box.get_child("scores_all")) {
+                scores_all.push_back(elem.second.get_value<float>());
+              }
+              vector<int> bbox;
+              BOOST_FOREACH(ptree::value_type &elem, pt_box.get_child("bbox")) {
+                bbox.push_back(static_cast<int>(elem.second.get_value<float>()));
+              }
+              bbox[2] = bbox[0] + bbox[2]; bbox[3] = bbox[1] + bbox[3]; 
+              outfile_all_score.write( reinterpret_cast<const char*>( &bbox[0] ), 4*sizeof(int) );
+              outfile_all_score.write(  reinterpret_cast<const char*>( &scores_all[0] ), 30*sizeof(float) );
             }
-            vector<int> bbox;
-            BOOST_FOREACH(ptree::value_type &elem, pt.get_child("bbox")) {
-              bbox.push_back(static_cast<int>(elem.second.get_value<float>()));
-            }
-            bbox[2] = bbox[0] + bbox[2]; bbox[3] = bbox[1] + bbox[3]; 
-            outfile_all_score.write( reinterpret_cast<const char*>( &bbox[0] ), 4*sizeof(int) );
-            outfile_all_score.write(  reinterpret_cast<const char*>( &scores_all[0] ), 30*sizeof(float) );
           }
           outfile_all_score.close();
           // read and test the output
