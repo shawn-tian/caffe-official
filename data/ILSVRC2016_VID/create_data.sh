@@ -1,8 +1,9 @@
 cur_dir=$(cd $( dirname ${BASH_SOURCE[0]} ) && pwd )
+echo $cur_dir
 root_dir=$cur_dir/../..
 
 cd $root_dir
-
+echo $root_dir
 redo=false
 data_root_dir="/mnt/disk_06/shangxuan/vid_imagenet2016"
 dataset_name="ILSVRC2016_VID"
@@ -29,7 +30,8 @@ fi
 #   2>&1 | tee $root_dir/data/$dataset_name/$dataset.log
 # done
 
-for dataset in vid_train+det30_trainval_all
+#for dataset in vid_train+det30_trainval_all
+for dataset in vid_train_seq
 do
   python $root_dir/scripts/create_annoset.py --anno-type="detection" \
   --label-map-file=$mapfile --min-dim=$min_dim --max-dim=$max_dim \
