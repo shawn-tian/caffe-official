@@ -56,7 +56,7 @@ resume_training = True
 remove_old_models = False
 
 # The database file for training data. Created by data/VOC0712/create_data.sh
-train_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_trainval1_lmdb"
+train_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_vid_train_104708+det30_trainval_lmdb"
 # The database file for testing data. Created by data/VOC0712/create_data.sh
 test_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_test_lmdb"
 # Specify the batch sampler.
@@ -151,6 +151,7 @@ batch_sampler = [
         ]
 train_transform_param = {
         'mirror': True,
+        'force_color': True,
         'mean_value': [104, 117, 123],
         'resize_param': {
                 'prob': 1,
@@ -171,6 +172,7 @@ train_transform_param = {
         }
 test_transform_param = {
         'mean_value': [104, 117, 123],
+        'force_color': True,
         'resize_param': {
                 'prob': 1,
                 'resize_mode': P.Resize.WARP,
@@ -193,7 +195,7 @@ else:
 # Modify the job name if you want.
 
 cur_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-job_name = "SSD_{}".format(resize)
+job_name = "SSD_{}_DET30All_104708".format(resize)
 # The name of the model. Modify it if you want.
 model_name = "VGG_{}".format(job_name)
 
@@ -220,7 +222,7 @@ snapshot_prefix = "{}/{}".format(snapshot_dir, model_name)
 job_file = "{}/{}.sh".format(job_dir, model_name + '_' + cur_time)
 
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
-name_size_file = "data/ILSVRC2016_VID/test_name_size.txt"
+name_size_file = "data/ILSVRC2016_VID/vid_val_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
 pretrain_model = "models/VGGNet/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 # Stores LabelMapItem.
@@ -290,7 +292,7 @@ clip = True
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "6,7"
+gpus = "0,1,2,5"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
@@ -316,7 +318,7 @@ elif normalization_mode == P.Loss.FULL:
   # TODO(weiliu89): Estimate the exact # of priors.
   base_lr *= 2000.
 
-base_lr /= 100
+#base_lr /= 100
 # Which layers to freeze (no backward) during training.
 freeze_layers = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2']
 
@@ -330,14 +332,14 @@ solver_param = {
     'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "step",
-    'stepsize': 240000,
+    'stepsize': 50000,
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 200000,
-    'snapshot': 20000,
-    'display': 100,
-    'average_loss': 100,
+    'max_iter': 150000,
+    'snapshot': 10000,
+    'display': 20,
+    'average_loss': 20,
     'type': "SGD",
     'solver_mode': solver_mode,
     'device_id': device_id,
@@ -346,7 +348,7 @@ solver_param = {
     # Test parameters
     'test_iter': [test_iter],
     'test_compute_loss': True,
-    'test_interval': 200000,
+    'test_interval': 20000,
     'eval_type': "detection",
     'ap_version': "MaxIntegral",
     'test_initialization': False,

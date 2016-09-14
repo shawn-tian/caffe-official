@@ -56,7 +56,8 @@ run_soon = True
 # The database file for training data. Created by data/VOC0712/create_data.sh
 train_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_trainval1_lmdb"
 # The database file for testing data. Created by data/VOC0712/create_data.sh
-test_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_test_lmdb"
+#test_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_test_lmdb"
+test_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_test_final_lmdb"
 # Specify the batch sampler.
 resize_width = 300
 resize_height = 300
@@ -191,19 +192,19 @@ else:
 # The job name should be same as the name used in examples/ssd/ssd_pascal.py.
 # Modify the job name if you want.
 cur_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-job_name = "SSD_{}_eval_ILSVRC".format(resize)
+job_name = "SSD_{}_104708+det30".format(resize)
+# Directory which stores the detection results.
+output_result_dir = "{}/visenzeWork/ssd_object_detect/results/ILSVRC2016/test_final/{}".format(
+    os.environ['HOME'], job_name+'_test_final_vgg')
 # The name of the model. Modify it if you want.
-model_name = "VGG_ILSVRC2016_VID_{}".format(job_name)
+model_name = "VGG_{}".format(job_name)
 
 # Directory which stores the model .prototxt file.
-save_dir = "models/VGGNet/ILSVRC2016_VID/{}".format(job_name)
+save_dir = "models/VGGNet/ILSVRC2016_VID/{}_test_final_vgg".format(job_name)
 # Directory which stores the snapshot of models.
 snapshot_dir = "models/VGGNet/ILSVRC2016_VID/{}".format(job_name)
 # Directory which stores the job script and log file.
-job_dir = "jobs/VGGNet/ILSVRC2016_VID/{}".format(job_name)
-# Directory which stores the detection results.
-output_result_dir = "{}/visenzeWork/ssd_object_detect/results/ILSVRC2016/{}".format(os.environ['HOME'], job_name)
-
+job_dir = "jobs/VGGNet/ILSVRC2016_VID/{}_test_final_vgg".format(job_name)
 
 # model definition files.
 train_net_file = "{}/train.prototxt".format(save_dir)
@@ -218,6 +219,7 @@ job_file = "{}/{}.sh".format(job_dir, model_name + '_' + cur_time)
 
 # Find most recent snapshot.
 max_iter = 0
+# import pdb; pdb.set_trace()
 for file in os.listdir(snapshot_dir):
   if file.endswith(".caffemodel"):
     basename = os.path.splitext(file)[0]
@@ -225,14 +227,14 @@ for file in os.listdir(snapshot_dir):
     if iter > max_iter:
       max_iter = iter
 
-max_iter = 120000 # test a specific snapshot
+max_iter = 220000 # test a specific snapshot
 
 if max_iter == 0:
   print("Cannot find snapshot in {}".format(snapshot_dir))
   sys.exit()
 
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
-name_size_file = "data/ILSVRC2016_VID/vid_val_name_size.txt"
+name_size_file = "data/ILSVRC2016_VID/test_name_size_final.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
 # pretrain_model = "models/VGGNet/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 pretrain_model = "{}_iter_{}.caffemodel".format(snapshot_prefix, max_iter)
@@ -302,10 +304,10 @@ clip = True
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "0"
+gpus = "3"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
-num_gpus = 0
+# num_gpus = 0
 # The number does not matter since we do not do training with this script.
 batch_size = 1
 accum_batch_size = 1
@@ -334,7 +336,7 @@ elif normalization_mode == P.Loss.FULL:
 freeze_layers = ['conv1_1', 'conv1_2', 'conv2_1', 'conv2_2']
 
 # Evaluate on whole test set.
-num_test_image = 1
+num_test_image = 712756 #104708 #75522
 test_batch_size = 1
 # Ideally test_batch_size should be divisible by num_test_image,
 # otherwise mAP will be slightly off the true value.
@@ -363,7 +365,7 @@ solver_param = {
     'test_interval': 10000,
     'eval_type': "detection",
     'ap_version': "MaxIntegral",
-    'test_initialization': True,
+    #'test_initialization': True,
     'test_iter_num_file': test_iter_num_file, # record the iter number for the output file
     }
 
@@ -436,8 +438,8 @@ with open(train_net_file, 'w') as f:
 
 # Create test net.
 net = caffe.NetSpec()
-net.data, net.label = CreateAnnotatedDataLayer(test_data, batch_size=test_batch_size,
-        train=False, output_label=True, label_map_file=label_map_file,
+net.data = CreateAnnotatedDataLayer(test_data, batch_size=test_batch_size,
+        train=False, output_label=False, label_map_file=label_map_file,
         transform_param=test_transform_param)
 
 VGGNetBody(net, from_layer='data', fully_conv=True, reduced=True, dilated=True,
@@ -468,9 +470,11 @@ elif multibox_loss_param["conf_loss_type"] == P.MultiBoxLoss.LOGISTIC:
 net.detection_out = L.DetectionOutput(*mbox_layers,
     detection_output_param=det_out_param,
     include=dict(phase=caffe_pb2.Phase.Value('TEST')))
-net.detection_eval = L.DetectionEvaluate(net.detection_out, net.label,
-    detection_evaluate_param=det_eval_param,
+net.silence = L.Silence(net.detection_out, ntop=0,
     include=dict(phase=caffe_pb2.Phase.Value('TEST')))
+# net.detection_eval = L.DetectionEvaluate(net.detection_out, net.label,
+#     detection_evaluate_param=det_eval_param,
+#     include=dict(phase=caffe_pb2.Phase.Value('TEST')))
 
 with open(test_net_file, 'w') as f:
     print('name: "{}_test"'.format(model_name), file=f)

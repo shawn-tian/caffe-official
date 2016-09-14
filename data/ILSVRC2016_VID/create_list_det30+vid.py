@@ -21,8 +21,7 @@ img_ext = "JPEG"
 anno_dir = "Annotations"
 anno_ext = "xml"
 
-#train_list_file = "{}/vid_train+det30_trainval_all_seq.txt".format(CURDIR)
-train_list_file = "{}/vid_train_seq.txt".format(CURDIR)
+train_list_file = "{}/vid_train_104708+det30_trainval.txt".format(CURDIR)
 val_list_file = "{}/vid_val.txt".format(CURDIR)
 val_name_size_file = "{}/vid_val_name_size.txt".format(CURDIR)
 test_list_file = "{}/test.txt".format(CURDIR)
@@ -74,26 +73,13 @@ if redo or not os.path.exists(train_list_file):
 
     # Shuffle the images.
     idx = [i for i in xrange(len(img_files))]
-    # shuffle(idx)
+    shuffle(idx)
     with open(train_list_file, "w") as f:
         for i in idx:
             f.write("{} {}\n".format(img_files[i], anno_files[i]))
     print "In total {:d} images loaded.".format(len(img_files))
 else:
     print "Training image list file already exists: {}".format(train_list_file)
-
-# get training image name size file for testing 
-if redo or not os.path.exists(train_name_size_file):
-    dataset = 'train'
-    imgset_file = "{}/{}/{}".format(data_dir, dataset, imgset_list)
-    cmd = "{}/../../build/tools/get_image_size --name_id_file={} {} {} {}".format(
-            CURDIR, imgset_file, data_dir, train_list_file, train_name_size_file)
-    print cmd
-    process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
-    output = process.communicate()[0]
-else:
-    print "Training image size file already exists: {}".format(train_name_size_file)
-
 sys.exit(0)
 # if redo or not os.path.exists(val_list_file):
 #     datasets = ["val2"]

@@ -56,7 +56,7 @@ resume_training = True
 remove_old_models = False
 
 # The database file for training data. Created by data/VOC0712/create_data.sh
-train_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_trainval1_lmdb"
+train_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_vid_train_104708+det30_trainval_lmdb"
 # The database file for testing data. Created by data/VOC0712/create_data.sh
 test_data = "/mnt/disk_06/shangxuan/vid_imagenet2016/lmdb/ILSVRC2016_VID_test_lmdb"
 # Specify the batch sampler.
@@ -151,6 +151,7 @@ batch_sampler = [
         ]
 train_transform_param = {
         'mirror': True,
+        'force_color': True,
         'mean_value': [104, 117, 123],
         'resize_param': {
                 'prob': 1,
@@ -171,6 +172,7 @@ train_transform_param = {
         }
 test_transform_param = {
         'mean_value': [104, 117, 123],
+        'force_color': True,
         'resize_param': {
                 'prob': 1,
                 'resize_mode': P.Resize.WARP,
@@ -192,7 +194,7 @@ else:
 
 # Modify the job name if you want.
 cur_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-job_name = "SSD_{}".format(resize)
+job_name = "SSD_{}_104708+det30".format(resize)
 # The name of the model. Modify it if you want.
 model_name = "VGG_{}".format(job_name)
 
@@ -218,7 +220,7 @@ snapshot_prefix = "{}/{}".format(snapshot_dir, model_name)
 job_file = "{}/{}.sh".format(job_dir, model_name + '_' + cur_time)
 
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
-name_size_file = "data/ILSVRC2016_VID/test_name_size.txt"
+name_size_file = "data/ILSVRC2016_VID/vid_val_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
 # pretrain_model = "models/VGGNet/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 pretrain_model = "models/VGGNet/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
@@ -293,8 +295,8 @@ gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
 # Divide the mini-batch to different GPUs.
-batch_size = 64
-accum_batch_size = 64
+batch_size = 32 
+accum_batch_size = 32
 iter_size = accum_batch_size / batch_size
 solver_mode = P.Solver.CPU
 device_id = 0
@@ -330,7 +332,7 @@ solver_param = {
     'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "step",
-    'stepsize': 160000,
+    'stepsize': 80000,
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,

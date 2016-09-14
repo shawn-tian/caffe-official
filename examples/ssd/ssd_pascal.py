@@ -259,7 +259,8 @@ min_dim = 300
 # pool6 ==> 1 x 1
 mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'pool6']
 # in percent %
-min_ratio = 20
+import pdb; pdb.set_trace()
+min_ratio = 10
 max_ratio = 95
 step = int(math.floor((max_ratio - min_ratio) / (len(mbox_source_layers) - 2)))
 min_sizes = []
@@ -267,9 +268,9 @@ max_sizes = []
 for ratio in xrange(min_ratio, max_ratio + 1, step):
   min_sizes.append(min_dim * ratio / 100.)
   max_sizes.append(min_dim * (ratio + step) / 100.)
-min_sizes = [min_dim * 10 / 100.] + min_sizes
+min_sizes = [min_dim * 5 / 100.] + min_sizes
 max_sizes = [[]] + max_sizes
-aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]]
+aspect_ratios = [[2, 3], [2, 3, 4], [2, 3, 4], [2, 3, 4], [2, 3, 4], [2, 3,4]]
 # L2 normalize conv4_3.
 normalizations = [20, -1, -1, -1, -1, -1]
 # variance used to encode/decode prior bboxes.
@@ -280,6 +281,7 @@ else:
 flip = True
 clip = True
 
+sys.exit(0)
 # Solver parameters.
 # Defining which GPUs to use.
 gpus = "0,1,2,3"
