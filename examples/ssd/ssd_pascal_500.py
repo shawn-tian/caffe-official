@@ -292,13 +292,13 @@ clip = True
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "0,1,2,5"
+gpus = "1"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
 # Divide the mini-batch to different GPUs.
-batch_size = 32
-accum_batch_size = 32
+batch_size = 3 
+accum_batch_size = 30
 iter_size = accum_batch_size / batch_size
 solver_mode = P.Solver.CPU
 device_id = 0
@@ -332,11 +332,11 @@ solver_param = {
     'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "step",
-    'stepsize': 50000,
+    'stepsize': 60000,
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 150000,
+    'max_iter': 160000,
     'snapshot': 10000,
     'display': 20,
     'average_loss': 20,

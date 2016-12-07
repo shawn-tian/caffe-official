@@ -202,7 +202,7 @@ snapshot_dir = "models/ResNet/ILSVRC2016_VID/{}".format(job_name)
 # Directory which stores the job script and log file.
 job_dir = "jobs/ResNet/ILSVRC2016_VID/{}".format(job_name)
 # Directory which stores the detection results.
-output_result_dir = "{}/visenzeWork/ssd_object_detect/results/ILSVRC2016/{}".format(os.environ['HOME'], job_name)
+output_result_dir = "/mnt/disk_06/shangxuan/vid_imagenet2016/results/ILSVRC2016/{}".format(job_name)
 
 # model definition files.
 train_net_file = "{}/train.prototxt".format(save_dir)
@@ -264,7 +264,7 @@ min_dim = 300
 # pool6 ==> 1 x 1
 mbox_source_layers = ['res3b3_relu', 'res5c_relu', 'res5c_relu/conv1_2', 'res5c_relu/conv2_2', 'res5c_relu/conv3_2', 'pool6']
 # in percent %
-min_ratio = 20
+min_ratio = 10
 max_ratio = 95
 step = int(math.floor((max_ratio - min_ratio) / (len(mbox_source_layers) - 2)))
 min_sizes = []
@@ -272,9 +272,9 @@ max_sizes = []
 for ratio in xrange(min_ratio, max_ratio + 1, step):
   min_sizes.append(min_dim * ratio / 100.)
   max_sizes.append(min_dim * (ratio + step) / 100.)
-min_sizes = [min_dim * 10 / 100.] + min_sizes
+min_sizes = [min_dim * 5 / 100.] + min_sizes
 max_sizes = [[]] + max_sizes
-aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]]
+aspect_ratios = [[2, 3], [2, 3, 4], [2, 3, 4], [2, 3, 4], [2, 3, 4], [2, 3,4]]
 # variance used to encode/decode prior bboxes.
 if code_type == P.PriorBox.CENTER_SIZE:
   prior_variance = [0.1, 0.1, 0.2, 0.2]

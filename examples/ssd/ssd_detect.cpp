@@ -25,7 +25,8 @@
 #include <string>
 #include <utility>
 #include <vector>
-
+#include <ctime>
+#define CPU_ONLY 1
 using namespace caffe;  // NOLINT(build/namespaces)
 
 class Detector {
@@ -94,20 +95,20 @@ std::vector<vector<float> > Detector::Detect(const cv::Mat& img) {
   net_->Forward();
 
   /* Copy the output layer to a std::vector */
-  Blob<float>* result_blob = net_->output_blobs()[0];
-  const float* result = result_blob->cpu_data();
-  const int num_det = result_blob->height();
+  // Blob<float>* result_blob = net_->output_blobs()[0];
+  // const float* result = result_blob->cpu_data();
+  // const int num_det = result_blob->height();
   vector<vector<float> > detections;
-  for (int k = 0; k < num_det; ++k) {
-    if (result[0] == -1) {
-      // Skip invalid detection.
-      result += 7;
-      continue;
-    }
-    vector<float> detection(result, result + 7);
-    detections.push_back(detection);
-    result += 7;
-  }
+  // for (int k = 0; k < num_det; ++k) {
+  //   if (result[0] == -1) {
+  //     // Skip invalid detection.
+  //     result += 7;
+  //     continue;
+  //   }
+  //   vector<float> detection(result, result + 7);
+  //   detections.push_back(detection);
+  //   result += 7;
+  // }
   return detections;
 }
 
@@ -237,7 +238,7 @@ DEFINE_string(file_type, "image",
     "The file type in the list_file. Currently support image and video.");
 DEFINE_string(out_file, "",
     "If provided, store the detection results in the out_file.");
-DEFINE_double(confidence_threshold, 0.01,
+DEFINE_double(confidence_threshold, 0.8,
     "Only store detections with score higher than the threshold.");
 
 int main(int argc, char** argv) {
@@ -266,7 +267,7 @@ int main(int argc, char** argv) {
   const string& mean_value = FLAGS_mean_value;
   const string& file_type = FLAGS_file_type;
   const string& out_file = FLAGS_out_file;
-  const float confidence_threshold = FLAGS_confidence_threshold;
+  //const float confidence_threshold = FLAGS_confidence_threshold;
 
   // Initialize the network.
   Detector detector(model_file, weights_file, mean_file, mean_value);
@@ -285,70 +286,47 @@ int main(int argc, char** argv) {
   // Process image one by one.
   std::ifstream infile(argv[3]);
   std::string file;
+  
+  std::clock_t start;
+  double duration;
+  double total_time = 0;
+  int im_num = 0;
   while (infile >> file) {
     if (file_type == "image") {
+      im_num ++;
+      start = std::clock();
       cv::Mat img = cv::imread(file, -1);
       CHECK(!img.empty()) << "Unable to decode image " << file;
       std::vector<vector<float> > detections = detector.Detect(img);
-
+      duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+      total_time += duration;
+      if (im_num % 10 == 0){
+        LOG(INFO) << "Processed: " << im_num;
+      }
+      // out << file << ": " << duration << ". Boxes detected: " << 
+      //      static_cast<int>(detections.size()) << std::endl;
       /* Print the detection results. */
-      for (int i = 0; i < detections.size(); ++i) {
-        const vector<float>& d = detections[i];
-        // Detection format: [image_id, label, score, xmin, ymin, xmax, ymax].
-        CHECK_EQ(d.size(), 7);
-        const float score = d[2];
-        if (score >= confidence_threshold) {
-          out << file << " ";
-          out << static_cast<int>(d[1]) << " ";
-          out << score << " ";
-          out << static_cast<int>(d[3] * img.cols) << " ";
-          out << static_cast<int>(d[4] * img.rows) << " ";
-          out << static_cast<int>(d[5] * img.cols) << " ";
-          out << static_cast<int>(d[6] * img.rows) << std::endl;
-        }
-      }
-    } else if (file_type == "video") {
-      cv::VideoCapture cap(file);
-      if (!cap.isOpened()) {
-        LOG(FATAL) << "Failed to open video: " << file;
-      }
-      cv::Mat img;
-      int frame_count = 0;
-      while (true) {
-        bool success = cap.read(img);
-        if (!success) {
-          LOG(INFO) << "Process " << frame_count << " frames from " << file;
-          break;
-        }
-        CHECK(!img.empty()) << "Error when read frame";
-        std::vector<vector<float> > detections = detector.Detect(img);
-
-        /* Print the detection results. */
-        for (int i = 0; i < detections.size(); ++i) {
-          const vector<float>& d = detections[i];
-          // Detection format: [image_id, label, score, xmin, ymin, xmax, ymax].
-          CHECK_EQ(d.size(), 7);
-          const float score = d[2];
-          if (score >= confidence_threshold) {
-            out << file << "_";
-            out << std::setfill('0') << std::setw(6) << frame_count << " ";
-            out << static_cast<int>(d[1]) << " ";
-            out << score << " ";
-            out << static_cast<int>(d[3] * img.cols) << " ";
-            out << static_cast<int>(d[4] * img.rows) << " ";
-            out << static_cast<int>(d[5] * img.cols) << " ";
-            out << static_cast<int>(d[6] * img.rows) << std::endl;
-          }
-        }
-        ++frame_count;
-      }
-      if (cap.isOpened()) {
-        cap.release();
-      }
-    } else {
+      // for (int i = 0; i < detections.size(); ++i) {
+      //   const vector<float>& d = detections[i];
+      //   // Detection format: [image_id, label, score, xmin, ymin, xmax, ymax].
+      //   CHECK_EQ(d.size(), 7);
+      //   const float score = d[2];
+      //   if (score >= confidence_threshold) {
+      //     out << file << " ";
+      //     out << static_cast<int>(d[1]) << " ";
+      //     out << score << " ";
+      //     out << static_cast<int>(d[3] * img.cols) << " ";
+      //     out << static_cast<int>(d[4] * img.rows) << " ";
+      //     out << static_cast<int>(d[5] * img.cols) << " ";
+      //     out << static_cast<int>(d[6] * img.rows) << std::endl;
+      //   }
+      // }
+    } 
+    else {
       LOG(FATAL) << "Unknown file_type: " << file_type;
     }
   }
+  out << "Average time: " << total_time / im_num << std::endl;
 #else
   LOG(FATAL) << "This example requires OpenCV; compile with USE_OPENCV.";
 #endif  // USE_OPENCV

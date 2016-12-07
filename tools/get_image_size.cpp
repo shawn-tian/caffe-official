@@ -92,9 +92,10 @@ int main(int argc, char** argv) {
     //LOG(INFO) << "root folder:" << root_folder << "\nimage file:" << img_file.string();
     // LOG(INFO) << "line:" << lines[line_id].first;
      //LOG(INFO) << "parent: " << img_file.parent_path().stem();
-     std::string img_name = ( img_file.parent_path().stem() / img_file.stem() ).string();
+    // std::string img_name = ( img_file.parent_path().stem() / img_file.stem() ).string();
     //  std::string img_name = ( img_file.parent_path().parent_path().stem() / img_file.parent_path().stem() / img_file.stem() ).string();
-
+    std::string img_name = img_file.stem().string();
+    
      // std::map<string,int>::const_iterator it;
      // for (it = map_name_id.begin(); it != map_name_id.end(); it++) {
      // LOG(INFO) << it->first<<" =>"<< it->second<<std::endl;
@@ -103,7 +104,7 @@ int main(int argc, char** argv) {
     if (map_name_id.size() == 0) {
       outfile << img_name << " " << height << " " << width << std::endl;
     } else {
-      //LOG(INFO) << "img_name: " << img_name;
+      // LOG(INFO) << "img_name: " << img_name;
       CHECK(map_name_id.find(img_name) != map_name_id.end());
       int img_id = map_name_id.find(img_name)->second;
       outfile << img_id << " " << height << " " << width << std::endl;

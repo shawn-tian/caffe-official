@@ -302,7 +302,7 @@ clip = True
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "1"
+gpus = "0"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
@@ -377,7 +377,7 @@ det_out_param = {
         'test_iter_num_file': test_iter_num_file, # record the iter number for the output file
         },
     'keep_top_k': 200,
-    'confidence_threshold': 0.001,
+    'confidence_threshold': 0.01,
     'code_type': code_type,
     }
 
